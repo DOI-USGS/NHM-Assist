@@ -17,6 +17,8 @@ from nhm_helpers.nhm_output_visualization import (
     create_sum_seg_var_dataarrays, create_sum_var_annual_df,
     create_sum_var_dataarrays, create_sum_var_monthly_df, create_var_daily_df,
     create_var_ts_for_poi_basin_df)
+import subprocess
+import os
 
 con = Console()
 pretty.install()
@@ -179,6 +181,61 @@ leg_only_dict = {
     "unused_potet": "legendonly",
 }
 
+def is_wsl():
+    """
+    Check if the code is running in Windows Subsystem for Linux (WSL).
+
+    Returns
+    -------
+    bool
+        True if running in WSL, False otherwise.
+    """
+
+    try:
+        with open('/proc/version', 'r') as f:
+            return 'microsoft' in f.read().lower()
+    except FileNotFoundError:
+        return False
+
+def make_webbrowser_map(map_file):
+    """
+    Open a map file in a web browser.
+    
+    If running in Nebari, print the URL to open the map.
+    If running in WSL, convert the path to a Windows path before opening it.
+
+    Parameters
+    ----------
+    map_file : str or pathlib.Path
+        Path to the map file to be opened.
+
+    Returns
+    -------
+    None
+        This function does not return anything.
+    """
+
+    # create string of map file path
+    map_file_str = f"{map_file}"
+    
+    # if running in Nebari, print url to open map, else use webbrowser to have map popup directly
+    if "NEBARI_CONDA_STORE_SERVER_SERVICE_HOST" in os.environ:
+        full_url = (
+            f"https://nebari.chs.usgs.gov/user/{os.environ['JUPYTERHUB_USER']}/files/"
+            + map_file_str
+        )
+    
+        print(f"Open your map: {full_url}")
+    # otherwise, use mapbrowser to open file
+    else:
+        # if working in WSL, you have to convert the path for it to work
+        if is_wsl():
+            # Convert to Windows path
+            windows_path = (
+                subprocess.check_output(["wslpath", "-w", map_file_str]).decode().strip()
+            )
+            map_file_str = f"file:///{windows_path}"
+        webbrowser.open(map_file_str, new=2)
 
 def make_plot_var_for_hrus_in_poi_basin(
     out_dir,
@@ -236,7 +293,7 @@ def make_plot_var_for_hrus_in_poi_basin(
     ).resolve()
 
     if plot_file_path.exists():
-        webbrowser.open(f"{plot_file_path}", new=2)
+        make_webbrowser_map(plot_file_path)
     else:
         var_daily, sum_var_monthly, sum_var_annual, var_units, var_desc = (
             create_sum_var_dataarrays(
@@ -543,7 +600,7 @@ def make_plot_var_for_hrus_in_poi_basin(
 
             plotly.offline.plot(fig, filename=f"{plot_file_path}")
 
-        return plot_file_path
+    return plot_file_path
 
 
 def oopla(
@@ -610,7 +667,7 @@ def oopla(
     ).resolve()
 
     if plot_file_path.exists():
-        webbrowser.open(f"{plot_file_path}", new=2)
+        make_webbrowser_map(plot_file_path)
     else:
 
         hru_gdf, hru_poi_dict = create_poi_group(hru_gdf, poi_df, param_filename)
@@ -963,7 +1020,7 @@ def create_streamflow_plot(
     ).resolve()
 
     if plot_file_path.exists():
-        webbrowser.open(f"{plot_file_path}", new=2)
+        make_webbrowser_map(plot_file_path)
 
     else:
         # for this function, output_var_sel will always be seg_outflow. Set it and forget it!

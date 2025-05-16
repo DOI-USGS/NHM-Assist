@@ -20,6 +20,9 @@ from nhm_helpers.nhm_output_visualization import (
     create_streamflow_obs_datasets, create_sum_seg_var_dataarrays,
     create_sum_var_annual_gdf)
 from nhm_helpers.output_plots import calculate_monthly_kge_in_poi_df
+import subprocess
+import os
+import webbrowser
 
 pretty.install()
 con = Console()
@@ -115,6 +118,62 @@ tooltip_seg = folium.GeoJsonTooltip(
     aliases=["segment", "flows to segment"],
     labels=True,
 )
+
+def is_wsl():
+    """
+    Check if the code is running in Windows Subsystem for Linux (WSL).
+
+    Returns
+    -------
+    bool
+        True if running in WSL, False otherwise.
+    """
+
+    try:
+        with open('/proc/version', 'r') as f:
+            return 'microsoft' in f.read().lower()
+    except FileNotFoundError:
+        return False
+
+def make_webbrowser_map(map_file):
+    """
+    Open a map file in a web browser.
+    
+    If running in Nebari, print the URL to open the map.
+    If running in WSL, convert the path to a Windows path before opening it.
+
+    Parameters
+    ----------
+    map_file : str or pathlib.Path
+        Path to the map file to be opened.
+
+    Returns
+    -------
+    None
+        This function does not return anything.
+    """
+
+    # create string of map file path
+    map_file_str = f"{map_file}"
+    
+    # if running in Nebari, print url to open map, else use webbrowser to have map popup directly
+    if "NEBARI_CONDA_STORE_SERVER_SERVICE_HOST" in os.environ:
+        full_url = (
+            f"https://nebari.chs.usgs.gov/user/{os.environ['JUPYTERHUB_USER']}/files/"
+            + map_file_str
+        )
+    
+        print(f"Open your map: {full_url}")
+    # otherwise, use mapbrowser to open file
+    else:
+        # if working in WSL, you have to convert the path for it to work
+        if is_wsl():
+            # Convert to Windows path
+            windows_path = (
+                subprocess.check_output(["wslpath", "-w", map_file_str]).decode().strip()
+            )
+            map_file_str = f"file:///{windows_path}"
+        webbrowser.open(map_file_str, new=2)
 
 
 def folium_map_elements(hru_gdf, poi_df, poi_id_sel):
@@ -1639,6 +1698,8 @@ def make_hf_map(
     map_file = f"{html_maps_dir}/hydrofabric_map.html"
     m2.save(map_file)
 
+    make_webbrowser_map(map_file)
+
     return map_file
 
 
@@ -1790,6 +1851,8 @@ def make_par_map(
     m3.add_child(val_bar_image)
 
     m3.save(map_file)
+
+    make_webbrowser_map(map_file)
 
     return map_file
 
@@ -1961,6 +2024,8 @@ def make_var_map(
 
     map_file = f"{html_maps_dir}/{output_var_sel}_{sel_year}_map.html"
     m3.save(map_file)
+
+    make_webbrowser_map(map_file)
 
     return map_file
 
@@ -2143,4 +2208,6 @@ def make_streamflow_map(
     map_file = html_maps_dir / "streamflow_map.html"
     m.save(map_file)
 
+    make_webbrowser_map(map_file)
+    
     return map_file
